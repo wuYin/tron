@@ -9,13 +9,15 @@ type Server struct {
 	address string
 	living  bool
 	handler func(worker *Client, p *Packet)
+	conf    *Config
 }
 
-func NewServer(addr string, f func(worker *Client, p *Packet)) *Server {
+func NewServer(addr string, conf *Config, f func(worker *Client, p *Packet)) *Server {
 	s := &Server{
 		address: addr,
 		handler: f,
 		living:  true,
+		conf:    conf,
 	}
 	return s
 }
@@ -44,7 +46,7 @@ func (s *Server) run(l *net.TCPListener) error {
 			logx.Error(err)
 			continue
 		}
-		serverWorker := NewClient(conn, s.handler)
+		serverWorker := NewClient(conn, s.conf, s.handler)
 		serverWorker.Run()
 	}
 	return nil

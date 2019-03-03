@@ -8,8 +8,12 @@ import (
 	"tron"
 )
 
+const KB = 1024
+
 func main() {
-	s := tron.NewServer("localhost:8080", serverPacketHandler)
+
+	conf := tron.NewConfig(16*KB, 16*KB, 100, 100)
+	s := tron.NewServer("localhost:8080", conf, serverPacketHandler)
 	s.ListenAndServe()
 
 	conn, err := dial("localhost:8080")
@@ -18,7 +22,7 @@ func main() {
 		return
 	}
 
-	cli := tron.NewClient(conn, clientPacketHandler)
+	cli := tron.NewClient(conn, conf, clientPacketHandler)
 	cli.Run()
 
 	pack := tron.NewPacket(1, []byte("ping"))

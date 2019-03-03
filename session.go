@@ -9,11 +9,6 @@ import (
 	"net"
 )
 
-var (
-	bufSize  = 16 * 1024
-	chanSize = 100
-)
-
 // 某个连接的会话信息
 type Session struct {
 	conn    *net.TCPConn
@@ -22,16 +17,18 @@ type Session struct {
 	ReadCh  chan *Packet  // 读请求的 channel
 	WriteCh chan *Packet  // 写响应的 channel
 	living  bool
+	conf    *Config
 }
 
-func NewSession(conn *net.TCPConn) *Session {
+func NewSession(conn *net.TCPConn, conf *Config) *Session {
 	s := &Session{
 		conn:    conn,
-		cr:      bufio.NewReaderSize(conn, bufSize),
-		cw:      bufio.NewWriterSize(conn, bufSize),
-		ReadCh:  make(chan *Packet, chanSize),
-		WriteCh: make(chan *Packet, chanSize),
+		cr:      bufio.NewReaderSize(conn, conf.ReadBufSize),
+		cw:      bufio.NewWriterSize(conn, conf.WriteBufSize),
+		ReadCh:  make(chan *Packet, conf.ReadChanSize),
+		WriteCh: make(chan *Packet, conf.WriteChanSize),
 		living:  true,
+		conf:    conf,
 	}
 	return s
 }

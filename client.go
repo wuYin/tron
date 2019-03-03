@@ -11,14 +11,16 @@ type Client struct {
 	localAddr  string
 	remoteAddr string
 	handler    func(cli *Client, p *Packet) // 包处理函数
+	conf       *Config
 }
 
-func NewClient(conn *net.TCPConn, f func(cli *Client, p *Packet)) *Client {
-	session := NewSession(conn)
+func NewClient(conn *net.TCPConn, conf *Config, f func(cli *Client, p *Packet)) *Client {
+	session := NewSession(conn, conf)
 	cli := &Client{
 		conn:    conn,
 		session: session,
 		handler: f,
+		conf:    conf,
 	}
 	return cli
 }
