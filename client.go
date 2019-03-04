@@ -2,6 +2,7 @@ package tron
 
 import (
 	"fmt"
+	"github.com/wuYin/logx"
 	"net"
 )
 
@@ -65,4 +66,18 @@ func (c *Client) RemoteAddr() string {
 
 func (c *Client) Living() bool {
 	return c.session.Living()
+}
+
+// 尝试重连
+func (c *Client) reconnect() (bool, error) {
+	newConn, err := net.DialTCP("tcp4", nil, c.conn.RemoteAddr().(*net.TCPAddr))
+	if err != nil {
+		logx.Error(err)
+		return false, err
+	}
+
+	c.conn = newConn
+	c.session = NewSession(newConn, c.conf) // 建立连接
+	c.Run()                                 // 重启
+	return true, nil
 }
