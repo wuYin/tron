@@ -25,13 +25,17 @@ func main() {
 	cli := tron.NewClient(conn, conf, clientPacketHandler)
 	cli.Run()
 
+	group := tron.NewGroup("tron", "disneyland")
+	cliManager := tron.NewClientsManager()
+	cliManager.Join(group, cli)
+
 	pack := tron.NewPacket(1, []byte("ping"))
 	if err = cli.DirectWrite(pack); err != nil {
 		logx.Error(err)
 		return
 	}
 
-	time.Sleep(1 * time.Second)
+	time.Sleep(3 * time.Second)
 }
 
 func serverPacketHandler(worker *tron.Client, p *tron.Packet) {

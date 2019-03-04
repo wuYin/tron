@@ -62,3 +62,7 @@ func (c *Client) LocalAddr() string {
 func (c *Client) RemoteAddr() string {
 	return c.remoteAddr
 }
+
+func (c *Client) Living() bool {
+	return c.session.Living()
+}
