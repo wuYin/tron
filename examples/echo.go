@@ -18,23 +18,23 @@ func main() {
 
 	// 分别在第 0s 2s 4s 连接三次，发送四个 ping 包
 	go func() {
-		for i := 0; i < 4; i++ {
+		r := tron.NewReconnectTaskManager(5*time.Second, 2)
+		cliManager := tron.NewClientsManager(r)
+
+		for i := 0; i < 10; i++ {
 			conn, err := dial("localhost:8080")
 			if err != nil {
 				logx.Error(err)
-				return
+				continue
 			}
 			cli := tron.NewClient(conn, conf, clientPacketHandler)
 			cli.Run()
-
-			r := tron.NewReconnectTaskManager(5*time.Second, 2)
-			cliManager := tron.NewClientsManager(r)
 			cliManager.Add(cli)
 
 			pack := tron.NewPacket(1, []byte("ping"))
 			if err = cli.DirectWrite(pack); err != nil {
 				logx.Error(err)
-				return
+				continue
 			}
 			time.Sleep(2 * time.Second)
 		}
