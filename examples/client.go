@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"net"
+	"time"
 	"tron"
 )
 
@@ -13,22 +14,32 @@ func main() {
 		return
 	}
 
+	clientConf := tron.NewConfig(16*1024, 16*1024, 100, 100)
+	r := tron.NewReconnectTaskManager(5*time.Second, 3)
+	manager := tron.NewClientsManager(r)
 	conn, err := net.DialTCP("tcp4", nil, addr)
 	if err != nil {
-		fmt.Println(err)
-		return
+		panic(err)
 	}
 
-	clientConf := tron.NewConfig(16*1024, 16*1024, 100, 100)
 	cli := tron.NewClient(conn, clientConf, clientPackHandler)
 	cli.Run()
+	manager.Add(cli)
 
-	pingPack := tron.NewPacket(1, []byte("ping"))
-	cli.DirectWrite(pingPack)
+	go func() {
+		for i := 0; i < 5; i++ {
+			pingPack := tron.NewPacket(1, []byte("ping"))
+			cli.DirectWrite(pingPack)
+			time.Sleep(1 * time.Second)
+		}
+	}()
 
-	wait(10)
+	time.Sleep(100000 * time.Second)
 }
 
 func clientPackHandler(cli *tron.Client, p *tron.Packet) {
-	fmt.Printf("[server:%s] -> [client:%s]: %s\n", trim(cli.RemoteAddr()), trim(cli.LocalAddr()), string(p.Data))
+	fmt.Printf("[server:%s] -> [client:%s]: %s\n",
+		cli.RemoteAddr()[len(cli.RemoteAddr())-4:],
+		cli.LocalAddr()[len(cli.LocalAddr())-4:],
+		string(p.Data))
 }

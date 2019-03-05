@@ -1,11 +1,11 @@
-package main
+package tron
 
 import (
 	"strings"
 	"time"
 )
 
-func trim(addr string) string {
+func port(addr string) string {
 	hosts := strings.SplitN(addr, ":", 2)
 	if len(hosts) < 2 {
 		return ""

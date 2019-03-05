@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"time"
 	"tron"
 )
 
@@ -10,7 +11,7 @@ func main() {
 	s := tron.NewServer("localhost:8080", serverConf, serverPackHandler)
 	s.ListenAndServe()
 
-	wait(10)
+	time.Sleep(100000 * time.Second)
 }
 
 func serverPackHandler(worker *tron.Client, p *tron.Packet) {

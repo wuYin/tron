@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"errors"
+	"fmt"
 	"io"
 	"logx"
 	"net"
@@ -41,7 +42,6 @@ func (s *Session) ReadPacket() {
 	for s.living {
 		data, err := s.cr.ReadSlice(CRLF[0])
 		if err != nil {
-			logx.Error(err)
 			if err == io.EOF { // 对方主动关闭
 				s.Close()
 				return
@@ -90,9 +90,10 @@ func (s *Session) ReadPacket() {
 // 写入响应
 func (s *Session) WritePacket() {
 	for s.living {
-		p := <-s.WriteCh
-		s.writeConn(*p)
-		s.flush()
+		if p, ok := <-s.WriteCh; ok {
+			s.writeConn(*p)
+			s.flush()
+		}
 	}
 }
 
@@ -143,13 +144,12 @@ func (s *Session) flush() {
 
 // 关闭当前连接
 func (s *Session) Close() error {
-	logx.Debug("session will closed")
 	if s.living {
 		s.living = false
 		s.conn.Close() // 主动关闭连接
 		close(s.ReadCh)
 		close(s.WriteCh)
-		logx.Debug("session closed")
+		fmt.Println("session closed")
 	}
 	return nil
 }

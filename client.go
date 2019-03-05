@@ -2,7 +2,6 @@ package tron
 
 import (
 	"fmt"
-	"github.com/wuYin/logx"
 	"net"
 )
 
@@ -49,9 +48,10 @@ func (c *Client) DirectWrite(p *Packet) error {
 // 分发处理收取到的包
 func (c *Client) handle() {
 	for c.session != nil && c.session.living {
-		p := <-c.session.ReadCh
-		if c.handler != nil {
-			go c.handler(c, p)
+		if p, ok := <-c.session.ReadCh; ok {
+			if c.handler != nil {
+				go c.handler(c, p)
+			}
 		}
 	}
 }
@@ -72,7 +72,6 @@ func (c *Client) Living() bool {
 func (c *Client) reconnect() (bool, error) {
 	newConn, err := net.DialTCP("tcp4", nil, c.conn.RemoteAddr().(*net.TCPAddr))
 	if err != nil {
-		logx.Error(err)
 		return false, err
 	}
 

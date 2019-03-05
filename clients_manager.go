@@ -1,7 +1,6 @@
 package tron
 
 import (
-	"fmt"
 	"sync"
 	"time"
 )
@@ -30,12 +29,11 @@ func (m *ClientsManager) Add(newClient *Client) {
 }
 
 func (m *ClientsManager) manage() {
-	tick := time.NewTicker(1 * time.Second)
+	tick := time.NewTicker(5 * time.Second)
 	for {
 		for _, cli := range m.addr2client {
 			if !cli.Living() {
 				m.tryReconnect(cli)
-				fmt.Println("retry connecting...")
 			}
 		}
 		<-tick.C

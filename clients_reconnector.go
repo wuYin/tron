@@ -1,21 +1,21 @@
 package tron
 
 import (
-	"github.com/wuYin/logx"
+	"fmt"
 	"math"
 	"sync"
 	"time"
 )
 
 type reconnectTask struct {
-	client  *Client
-	retried int
+	client    *Client
+	retried   int
 }
 
-func NewReconnectTask(cli *Client) *reconnectTask {
+func newReconnectTask(cli *Client) *reconnectTask {
 	return &reconnectTask{
-		client:  cli,
-		retried: 0,
+		client:    cli,
+		retried:   0,
 	}
 }
 
@@ -25,7 +25,6 @@ func (t *reconnectTask) reconnect() bool {
 
 	succ, err := t.client.reconnect()
 	if !succ || err != nil {
-		logx.Error(succ, err)
 		return false
 	}
 	return true
@@ -55,37 +54,38 @@ func (m ReconnectTaskManager) prepare(cli *Client) {
 	if _, ok := m.taskTickers[cli.RemoteAddr()]; ok {
 		return
 	}
-
-	newTask := NewReconnectTask(cli)
+	newTask := newReconnectTask(cli)
 	m.exec(newTask)
 }
 
 // 执行重连任务
 func (m *ReconnectTaskManager) exec(task *reconnectTask) {
-	addr := task.client.RemoteAddr()
+	serverAddr := task.client.RemoteAddr()
+	sAddr := port(serverAddr)
+	lAddr := port(task.client.LocalAddr())
 	taskTicker := time.AfterFunc(m.timeout, func() {
 		succ := task.reconnect()
 		if succ {
-			if _, ok := m.taskTickers[addr]; ok {
-				delete(m.taskTickers, addr)
+			if _, ok := m.taskTickers[serverAddr]; ok {
+				delete(m.taskTickers, serverAddr)
 			}
-			logx.Debug("reconnect %s succ", addr)
+			fmt.Printf("[client:%s] -> [server:%s] reconnected succ\n", lAddr, sAddr)
 		} else {
-			ticker := m.taskTickers[addr]
+			ticker := m.taskTickers[serverAddr]
 			// 超出重试次数
-			if task.retried > m.maxRetry {
-				logx.Debug("tried %s %d times, more than max: %d", task.client.RemoteAddr(), task.retried, m.maxRetry)
+			if task.retried >= m.maxRetry {
+				fmt.Printf("[client:%s] -> [server:%s] try reconnected %d times > max %d times\n", lAddr, sAddr, task.retried, m.maxRetry)
 				ticker.Stop()
-				delete(m.taskTickers, addr)
+				delete(m.taskTickers, serverAddr)
 				return
 			}
 
 			// 二次规避重试策略
 			next := math.Pow(2, float64(task.retried))
 			ticker.Reset(time.Duration(next) * m.timeout)
-			logx.Debug("reconnect %s %d times...", addr, task.retried)
+			fmt.Printf("[client:%s] -> [server:%s] try reconnecting...  %d times\n", lAddr, sAddr, task.retried)
 		}
 	})
 
-	m.taskTickers[addr] = taskTicker
+	m.taskTickers[serverAddr] = taskTicker
 }
