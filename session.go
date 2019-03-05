@@ -8,30 +8,33 @@ import (
 	"io"
 	"logx"
 	"net"
+	"time"
 )
 
 // 某个连接的会话信息
 type Session struct {
-	conn    *net.TCPConn
-	cr      *bufio.Reader // 连接缓冲 reader
-	cw      *bufio.Writer // 连接缓冲 writer
-	ReadCh  chan *Packet  // 读请求的 channel
-	WriteCh chan *Packet  // 写响应的 channel
-	living  bool
-	conf    *Config
+	conn      *net.TCPConn
+	cr        *bufio.Reader // 连接缓冲 reader
+	cw        *bufio.Writer // 连接缓冲 writer
+	ReadCh    chan *Packet  // 读请求的 channel
+	WriteCh   chan *Packet  // 写响应的 channel
+	living    bool
+	idleTimer *time.Timer
+	conf      *Config
 }
 
 func NewSession(conn *net.TCPConn, conf *Config) *Session {
 	conn.SetReadBuffer(conf.ReadBufSize)
 	conn.SetWriteBuffer(conf.WriteBufSize)
 	s := &Session{
-		conn:    conn,
-		cr:      bufio.NewReaderSize(conn, conf.ReadBufSize),
-		cw:      bufio.NewWriterSize(conn, conf.WriteBufSize),
-		ReadCh:  make(chan *Packet, conf.ReadChanSize),
-		WriteCh: make(chan *Packet, conf.WriteChanSize),
-		living:  true,
-		conf:    conf,
+		conn:      conn,
+		cr:        bufio.NewReaderSize(conn, conf.ReadBufSize),
+		cw:        bufio.NewWriterSize(conn, conf.WriteBufSize),
+		ReadCh:    make(chan *Packet, conf.ReadChanSize),
+		WriteCh:   make(chan *Packet, conf.WriteChanSize),
+		living:    true,
+		idleTimer: time.NewTimer(conf.IdleDuration),
+		conf:      conf,
 	}
 	return s
 }
@@ -83,6 +86,7 @@ func (s *Session) ReadPacket() {
 
 		// 写入读缓冲
 		s.ReadCh <- p
+		s.idleTimer.Reset(s.conf.IdleDuration) // 重设空闲 timer
 		buf.Reset()
 	}
 }
@@ -156,4 +160,13 @@ func (s *Session) Close() error {
 
 func (s *Session) Living() bool {
 	return s.living
+}
+
+func (s *Session) IsIdle() bool {
+	select {
+	case <-s.idleTimer.C:
+		return true // 连接长时间空闲
+	default:
+		return false // 还没到超时时间
+	}
 }

@@ -68,6 +68,10 @@ func (c *Client) Living() bool {
 	return c.session.Living()
 }
 
+func (c *Client) IsIdle() bool {
+	return c.session.IsIdle()
+}
+
 // 尝试重连
 func (c *Client) reconnect() (bool, error) {
 	newConn, err := net.DialTCP("tcp4", nil, c.conn.RemoteAddr().(*net.TCPAddr))
