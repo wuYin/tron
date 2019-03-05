@@ -21,6 +21,8 @@ type Session struct {
 }
 
 func NewSession(conn *net.TCPConn, conf *Config) *Session {
+	conn.SetReadBuffer(conf.ReadBufSize)
+	conn.SetWriteBuffer(conf.WriteBufSize)
 	s := &Session{
 		conn:    conn,
 		cr:      bufio.NewReaderSize(conn, conf.ReadBufSize),
