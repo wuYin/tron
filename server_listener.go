@@ -22,29 +22,26 @@ func NewLiveListener(l *net.TCPListener, ch chan struct{}, d time.Duration) *Liv
 		closeCh:   ch,
 		keepAlive: d,
 	}
-
-	go func() {
-		for {
-			select {
-			case <-listener.closeCh:
-				if err := listener.listener.Close(); err != nil {
-					logx.Debug("server close listener failed: %v", err)
-					return
-				}
-				logx.Debug("server close listener succ")
-			}
-		}
-	}()
-
 	return listener
 }
 
 func (l *LiveListener) Accept() (*net.TCPConn, error) {
-	conn, err := l.listener.AcceptTCP()
-	if err != nil {
-		return nil, err
+	for {
+		conn, err := l.listener.AcceptTCP()
+		select {
+		case <-l.closeCh:
+			if err := l.listener.Close(); err != nil {
+				logx.Error(err)
+			}
+			return nil, ERR_SERVER_CLOSED
+		default:
+			// 建立连接前检查下服务器是否已关闭
+		}
+		if err != nil {
+			return nil, err
+		}
+		conn.SetKeepAlive(true)
+		conn.SetKeepAlivePeriod(l.keepAlive)
+		return conn, nil
 	}
-	conn.SetKeepAlive(true)
-	conn.SetKeepAlivePeriod(l.keepAlive)
-	return conn, nil
 }
