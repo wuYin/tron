@@ -6,18 +6,6 @@ import (
 	"time"
 )
 
-type Group struct {
-	ID  string
-	Key string
-}
-
-func NewGroup(id, key string) *Group {
-	return &Group{
-		ID:  id,
-		Key: key,
-	}
-}
-
 type ClientsManager struct {
 	reconnector *ReconnectTaskManager
 	addr2client map[string]*Client // client.address -> Client
@@ -45,11 +33,10 @@ func (m *ClientsManager) manage() {
 	tick := time.NewTicker(1 * time.Second)
 	for {
 		for _, cli := range m.addr2client {
-			if cli.Living() {
+			if !cli.Living() {
 				m.tryReconnect(cli)
 				fmt.Println("retry connecting...")
 			}
-			fmt.Println("connect living...")
 		}
 		<-tick.C
 	}

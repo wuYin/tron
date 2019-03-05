@@ -10,7 +10,6 @@ import (
 type reconnectTask struct {
 	client  *Client
 	retried int
-	group   *Group
 }
 
 func NewReconnectTask(cli *Client) *reconnectTask {
