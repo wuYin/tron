@@ -25,7 +25,7 @@ func NewLiveListener(l *net.TCPListener, ch chan struct{}, d time.Duration) *Liv
 	return listener
 }
 
-func (l *LiveListener) Accept() (*net.TCPConn, error) {
+func (l *LiveListener) AcceptTCP() (*net.TCPConn, error) {
 	for {
 		conn, err := l.listener.AcceptTCP()
 		select {

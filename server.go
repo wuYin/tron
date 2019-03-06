@@ -48,7 +48,7 @@ func (s *Server) ListenAndServe() error {
 // run 服务器直到手动不接受新连接
 func (s *Server) run(l *LiveListener) error {
 	for s.living {
-		conn, err := l.Accept()
+		conn, err := l.AcceptTCP()
 		if err != nil {
 			logx.Error(err)
 			continue
