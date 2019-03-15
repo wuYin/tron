@@ -7,7 +7,7 @@ import (
 )
 
 func main() {
-	serverConf := tron.NewConfig(16*1024, 16*1024, 100, 100)
+	serverConf := tron.NewConfig(16*1024, 16*1024, 100, 100, 1000, 5*time.Second)
 	s := tron.NewServer("localhost:8080", serverConf, serverPackHandler)
 	s.ListenAndServe()
 
