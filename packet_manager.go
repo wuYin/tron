@@ -36,10 +36,10 @@ func NewPacketManager(maxSeq int32) *PacketManager {
 }
 
 // 记录一个新的 packet
-func (m *PacketManager) Attach(newSeq int32, sigCh chan interface{}) {
-	l, g := m.group(newSeq)
+func (m *PacketManager) Attach(nextSeq int32, respCh chan interface{}) {
+	l, g := m.group(nextSeq)
 	l.Lock()
-	g[newSeq] = sigCh
+	g[nextSeq] = respCh
 	l.Unlock()
 }
 

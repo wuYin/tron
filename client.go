@@ -3,24 +3,27 @@ package tron
 import (
 	"fmt"
 	"net"
+	"time"
 )
 
 type Client struct {
-	conn       *net.TCPConn
-	session    *Session
-	localAddr  string
-	remoteAddr string
+	conn       *net.TCPConn                 // 原生连接
+	session    *Session                     // 连接会话
+	heartbeat  int64                        // 最后心跳时间
+	localAddr  string                       // 本端地址
+	remoteAddr string                       // 对端地址
 	handler    func(cli *Client, p *Packet) // 包处理函数
-	conf       *Config
+	conf       *Config                      // 共享配置
 }
 
 func NewClient(conn *net.TCPConn, conf *Config, f func(cli *Client, p *Packet)) *Client {
 	session := NewSession(conn, conf)
 	cli := &Client{
-		conn:    conn,
-		session: session,
-		handler: f,
-		conf:    conf,
+		conn:      conn,
+		heartbeat: time.Now().Unix(),
+		session:   session,
+		handler:   f,
+		conf:      conf,
 	}
 	return cli
 }
@@ -40,11 +43,42 @@ func (c *Client) Run() {
 	go c.handle()
 }
 
-// 暴露的直接写数据方法
-func (c *Client) DirectWrite(newPack *Packet) error {
-	newSeq, sigCh := c.fillSeq(newPack)
-	c.conf.PacketManager.Attach(newSeq, sigCh) // 管理新 pack
-	return c.session.DirectWrite(newPack)
+// 写入新 pack
+func (c *Client) DirectWrite(newPack *Packet) (chan interface{}, error) {
+	nextSeq, respCh := c.fillSeq(newPack)
+	c.conf.PacketManager.Attach(nextSeq, respCh)
+	return respCh, c.session.DirectWrite(newPack)
+}
+
+// 定期检测连接是否存活
+func (c *Client) Ping(heartbeat *Packet, timeout time.Duration) error {
+	v, err := c.SyncWriteAndRead(heartbeat, timeout)
+	if err != nil {
+		return fmt.Errorf("ping: %v", err)
+	}
+
+	pong, ok := v.(int64)
+	if !ok {
+		return fmt.Errorf("ping: invalid pong data type")
+	}
+	if pong > c.heartbeat { // 避免 packet 延迟
+		c.heartbeat = pong
+	}
+	return nil
+}
+
+// 同步请求，用于检测心跳等
+func (c *Client) SyncWriteAndRead(newPack *Packet, timeout time.Duration) (interface{}, error) {
+	respCh, err := c.DirectWrite(newPack)
+	if err != nil {
+		return nil, err
+	}
+	select {
+	case <-time.After(timeout):
+		return nil, fmt.Errorf("sync write: %d timeout", timeout)
+	case resp := <-respCh:
+		return resp, nil
+	}
 }
 
 // 填充新的 seq
@@ -53,11 +87,11 @@ func (c *Client) fillSeq(newPack *Packet) (int32, chan interface{}) {
 		return newPack.Seq, nil
 	}
 
-	n := c.conf.PacketManager.NextSeq()
-	ch := make(chan interface{}, 1)
-	newPack.Seq = n
+	nextSeq := c.conf.PacketManager.NextSeq()
+	respCh := make(chan interface{}, 1)
+	newPack.Seq = nextSeq
 
-	return n, ch
+	return nextSeq, respCh
 }
 
 // 处理完毕
@@ -88,6 +122,7 @@ func (c *Client) Living() bool {
 	return c.session.Living()
 }
 
+// 检测当前连接是否闲置
 func (c *Client) IsIdle() bool {
 	return c.session.IsIdle()
 }
