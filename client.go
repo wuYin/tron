@@ -41,8 +41,28 @@ func (c *Client) Run() {
 }
 
 // 暴露的直接写数据方法
-func (c *Client) DirectWrite(p *Packet) error {
-	return c.session.DirectWrite(p)
+func (c *Client) DirectWrite(newPack *Packet) error {
+	newSeq, sigCh := c.fillSeq(newPack)
+	c.conf.PacketManager.Attach(newSeq, sigCh) // 管理新 pack
+	return c.session.DirectWrite(newPack)
+}
+
+// 填充新的 seq
+func (c *Client) fillSeq(newPack *Packet) (int32, chan interface{}) {
+	if newPack.Seq > 0 {
+		return newPack.Seq, nil
+	}
+
+	n := c.conf.PacketManager.NextSeq()
+	ch := make(chan interface{}, 1)
+	newPack.Seq = n
+
+	return n, ch
+}
+
+// 处理完毕
+func (c *Client) Detach(seq int32, resp interface{}) {
+	c.conf.PacketManager.Detach(seq, resp)
 }
 
 // 分发处理收取到的包
