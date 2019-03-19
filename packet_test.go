@@ -1,18 +1,28 @@
 package tron
 
 import (
-	"reflect"
 	"testing"
 )
 
 func TestRW(t *testing.T) {
-	p1 := NewPacket('1', []byte("A"))
-	buf := MarshalPacket(*p1)
-	p2, err := UnmarshalPacket(buf)
-	if err != nil {
-		t.Fatal(err)
+	codec := NewDefaultCodec()
+	oldPack := NewPacket([]byte("a"))
+	b := codec.MarshalPacket(*oldPack)
+
+	if len(b) < PACK_LEN {
+		t.Fatalf("bytes len invalid: %d %v", len(b), b)
 	}
-	if !reflect.DeepEqual(p1, p2) {
-		t.Fail()
+	b = b[PACK_LEN:] // 掐掉 packetLen
+
+	newPack, err := codec.UnmarshalPacket(b)
+	if err != nil {
+		t.Fatalf("unmarshal packet failed: %v", err)
+	}
+
+	if newPack.Header.DataLen != 1 || newPack.Header.Seq != -1 {
+		t.Fatalf("invalid unmarshaled header: %+v", newPack.Header)
+	}
+	if string(newPack.Data) != "a" {
+		t.Fatalf("invalid unmarshaled packet data: %q", newPack.Data)
 	}
 }

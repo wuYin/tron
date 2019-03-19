@@ -85,13 +85,13 @@ func (c *Client) SyncWriteAndRead(newPack *Packet, timeout time.Duration) (inter
 
 // 填充新的 seq
 func (c *Client) fillSeq(newPack *Packet) (int32, chan interface{}) {
-	if newPack.Seq > 0 {
-		return newPack.Seq, nil
+	if newPack.Header.Seq > 0 {
+		return newPack.Header.Seq, nil
 	}
 
 	nextSeq := c.conf.PacketManager.NextSeq()
 	respCh := make(chan interface{}, 1)
-	newPack.Seq = nextSeq
+	newPack.Header.Seq = nextSeq
 
 	return nextSeq, respCh
 }

@@ -30,7 +30,7 @@ func main() {
 
 	go func() {
 		for i := 0; i < 5; i++ {
-			pingPack := tron.NewPacket(1, []byte("ping"))
+			pingPack := tron.NewPacket([]byte("ping"))
 			cli.DirectWrite(pingPack)
 			time.Sleep(1 * time.Second)
 		}
@@ -45,6 +45,6 @@ func clientPackHandler(cli *tron.Client, p *tron.Packet) {
 	fmt.Printf("[server:%s] -> [client:%s]: %s\n",
 		strings.Split(s, ":")[1],
 		strings.Split(c, ":")[1],
-		string(p.Data))       // debug
-	cli.Detach(p.Seq, p.Data) // ok
+		string(p.Data))              // debug
+	cli.Detach(p.Header.Seq, p.Data) // ok
 }

@@ -45,45 +45,18 @@ func NewSession(conn *net.TCPConn, conf *Config, codec Codec) *Session {
 func (s *Session) ReadPacket() {
 	buf := bytes.NewBuffer(nil)
 	for s.living {
-		data, err := s.cr.ReadSlice(CRLF[0])
+		b, err := s.codec.ReadPacket(s.cr)
 		if err != nil {
-			if err == io.EOF { // 对方主动关闭
-				s.Close()
-				return
-			}
-			continue
+			fmt.Println(err)
+			s.living = false
+			return
 		}
 
-		n, err := buf.Write(data)
+		p, err := s.codec.UnmarshalPacket(b)
 		if err != nil {
-			logx.Error(err)
-		}
-		if n < len(data) {
-			buf.Write(data[n:]) // 继续写
-		}
-
-		next, err := s.cr.ReadByte()
-		if err != nil {
-			logx.Error(err)
-			if err == io.EOF {
-				s.Close()
-				return
-			}
-		}
-		buf.Write([]byte{next})
-
-		if next != CRLF[1] {
-			logx.Error("invalid next byte")
-			buf.Reset()
-			continue
-		}
-
-		// 读取包数据
-		p, err := s.codec.UnmarshalPacket(buf.Bytes())
-		if err != nil || p == nil {
-			logx.Error("invalid packet data: %v", err)
-			buf.Reset()
-			continue
+			fmt.Println(err)
+			s.living = false
+			return
 		}
 
 		// 写入读缓冲

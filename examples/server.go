@@ -17,7 +17,7 @@ func main() {
 func serverPackHandler(worker *tron.Client, p *tron.Packet) {
 	fmt.Printf("[client:%s] -> [server:%s]: %s\n", worker.LocalAddr(), worker.RemoteAddr(), p.Data)
 	if string(p.Data) == "ping" {
-		pongPack := tron.NewPacket(1, []byte("pong"))
+		pongPack := tron.NewPacket([]byte("pong"))
 		respCh, err := worker.DirectWrite(pongPack)
 		if err != nil {
 			fmt.Println(err)
