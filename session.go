@@ -21,9 +21,10 @@ type Session struct {
 	living    bool
 	idleTimer *time.Timer
 	conf      *Config
+	codec     Codec
 }
 
-func NewSession(conn *net.TCPConn, conf *Config) *Session {
+func NewSession(conn *net.TCPConn, conf *Config, codec Codec) *Session {
 	conn.SetReadBuffer(conf.ReadBufSize)
 	conn.SetWriteBuffer(conf.WriteBufSize)
 	s := &Session{
@@ -35,6 +36,7 @@ func NewSession(conn *net.TCPConn, conf *Config) *Session {
 		living:    true,
 		idleTimer: time.NewTimer(conf.IdleDuration),
 		conf:      conf,
+		codec:     codec,
 	}
 	return s
 }
@@ -77,7 +79,7 @@ func (s *Session) ReadPacket() {
 		}
 
 		// 读取包数据
-		p, err := UnmarshalPacket(buf.Bytes())
+		p, err := s.codec.UnmarshalPacket(buf.Bytes())
 		if err != nil || p == nil {
 			logx.Error("invalid packet data: %v", err)
 			buf.Reset()
@@ -114,8 +116,34 @@ func (s *Session) DirectWrite(p *Packet) error {
 	return errors.New("conn closed")
 }
 
+// 关闭当前连接
+func (s *Session) Close() error {
+	if s.living {
+		s.living = false
+		s.conn.Close() // 主动关闭连接
+		close(s.ReadCh)
+		close(s.WriteCh)
+		fmt.Println("session closed")
+	}
+	return nil
+}
+
+func (s *Session) Living() bool {
+	return s.living
+}
+
+func (s *Session) IsIdle() bool {
+	select {
+	case <-s.idleTimer.C:
+		return true // 连接长时间空闲
+	default:
+		return false // 还没到超时时间
+	}
+}
+
+// 真正写入数据流
 func (s *Session) writeConn(p Packet) {
-	buf := MarshalPacket(p)
+	buf := s.codec.MarshalPacket(p)
 	if buf == nil || len(buf) == 0 {
 		logx.Error("invalid packet: %+v", p)
 		return
@@ -143,30 +171,5 @@ func (s *Session) flush() {
 		logx.Error("flush failed: %v", err)
 		s.cw.Reset(s.conn)
 		return
-	}
-}
-
-// 关闭当前连接
-func (s *Session) Close() error {
-	if s.living {
-		s.living = false
-		s.conn.Close() // 主动关闭连接
-		close(s.ReadCh)
-		close(s.WriteCh)
-		fmt.Println("session closed")
-	}
-	return nil
-}
-
-func (s *Session) Living() bool {
-	return s.living
-}
-
-func (s *Session) IsIdle() bool {
-	select {
-	case <-s.idleTimer.C:
-		return true // 连接长时间空闲
-	default:
-		return false // 还没到超时时间
 	}
 }

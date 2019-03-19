@@ -13,6 +13,7 @@ type Server struct {
 	living    bool
 	shutdown  chan struct{}
 	keepAlive time.Duration
+	codec     Codec
 }
 
 func NewServer(addr string, conf *Config, f func(worker *Client, p *Packet)) *Server {
@@ -23,6 +24,7 @@ func NewServer(addr string, conf *Config, f func(worker *Client, p *Packet)) *Se
 		conf:      conf,
 		shutdown:  make(chan struct{}, 1), // 这里是缓冲 channel
 		keepAlive: 5 * time.Second,
+		codec:     NewDefaultCodec(),
 	}
 	return s
 }
@@ -45,6 +47,13 @@ func (s *Server) ListenAndServe() error {
 	return nil
 }
 
+// 将服务器的连接关闭，不再接受新连接
+func (s *Server) Shutdown() {
+	s.living = false
+	s.shutdown <- struct{}{} // 立刻停止
+	logx.Debug("shutdown...")
+}
+
 // run 服务器直到手动不接受新连接
 func (s *Server) run(l *LiveListener) error {
 	for s.living {
@@ -55,15 +64,8 @@ func (s *Server) run(l *LiveListener) error {
 		}
 
 		// 将连接分发给 server worker 处理
-		serverWorker := NewClient(conn, s.conf, s.handler)
+		serverWorker := NewClient(conn, s.conf, s.codec, s.handler)
 		serverWorker.Run()
 	}
 	return nil
-}
-
-// 将服务器的连接关闭，不再接受新连接
-func (s *Server) Shutdown() {
-	s.living = false
-	s.shutdown <- struct{}{} // 立刻停止
-	logx.Debug("shutdown...")
 }

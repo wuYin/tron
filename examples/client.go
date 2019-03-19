@@ -23,7 +23,8 @@ func main() {
 		panic(err)
 	}
 
-	cli := tron.NewClient(conn, clientConf, clientPackHandler)
+	codec := tron.NewDefaultCodec()
+	cli := tron.NewClient(conn, clientConf, codec, clientPackHandler)
 	cli.Run()
 	manager.Add(cli)
 

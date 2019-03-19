@@ -14,16 +14,18 @@ type Client struct {
 	remoteAddr string                       // 对端地址
 	handler    func(cli *Client, p *Packet) // 包处理函数
 	conf       *Config                      // 共享配置
+	codec      Codec
 }
 
-func NewClient(conn *net.TCPConn, conf *Config, f func(cli *Client, p *Packet)) *Client {
-	session := NewSession(conn, conf)
+func NewClient(conn *net.TCPConn, conf *Config, codec Codec, f func(cli *Client, p *Packet)) *Client {
+	session := NewSession(conn, conf, codec)
 	cli := &Client{
 		conn:      conn,
 		heartbeat: time.Now().Unix(),
 		session:   session,
 		handler:   f,
 		conf:      conf,
+		codec:     codec,
 	}
 	return cli
 }
@@ -135,7 +137,7 @@ func (c *Client) reconnect() (bool, error) {
 	}
 
 	c.conn = newConn
-	c.session = NewSession(newConn, c.conf) // 建立连接
-	c.Run()                                 // 重启
+	c.session = NewSession(newConn, c.conf, c.codec) // 建立连接
+	c.Run()                                          // 重启
 	return true, nil
 }
