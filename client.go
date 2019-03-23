@@ -48,7 +48,7 @@ func (c *Client) Run() {
 // 写入新 pack
 func (c *Client) DirectWrite(newPack *Packet) (chan interface{}, error) {
 	nextSeq, respCh := c.fillSeq(newPack)
-	c.conf.PacketManager.Attach(nextSeq, respCh)
+	c.conf.SeqManager.RegisterSeq(nextSeq, respCh)
 	return respCh, c.session.DirectWrite(newPack)
 }
 
@@ -89,7 +89,7 @@ func (c *Client) fillSeq(newPack *Packet) (int32, chan interface{}) {
 		return newPack.Header.Seq, nil
 	}
 
-	nextSeq := c.conf.PacketManager.NextSeq()
+	nextSeq := c.conf.SeqManager.NextSeq()
 	respCh := make(chan interface{}, 1)
 	newPack.Header.Seq = nextSeq
 
@@ -98,7 +98,7 @@ func (c *Client) fillSeq(newPack *Packet) (int32, chan interface{}) {
 
 // 处理完毕
 func (c *Client) Detach(seq int32, resp interface{}) {
-	c.conf.PacketManager.Detach(seq, resp)
+	c.conf.SeqManager.RemoveSeq(seq, resp)
 }
 
 // 分发处理收取到的包

@@ -1,12 +1,11 @@
 package tron
 
 import (
-	"fmt"
 	"sync"
 	"sync/atomic"
 )
 
-type PacketManager struct {
+type SeqManager struct {
 	maxSeq int32
 	curSeq int32
 	locks  []*sync.Mutex
@@ -18,8 +17,8 @@ const (
 )
 
 // 并发级别决定分组
-func NewPacketManager(maxSeq int32) *PacketManager {
-	m := &PacketManager{
+func NewSeqManager(maxSeq int32) *SeqManager {
+	m := &SeqManager{
 		maxSeq: maxSeq,
 		curSeq: 0,
 		locks:  make([]*sync.Mutex, MAX_CONCUR),
@@ -36,7 +35,7 @@ func NewPacketManager(maxSeq int32) *PacketManager {
 }
 
 // 记录一个新的 packet
-func (m *PacketManager) Attach(nextSeq int32, respCh chan interface{}) {
+func (m *SeqManager) RegisterSeq(nextSeq int32, respCh chan interface{}) {
 	l, g := m.group(nextSeq)
 	l.Lock()
 	g[nextSeq] = respCh
@@ -44,12 +43,11 @@ func (m *PacketManager) Attach(nextSeq int32, respCh chan interface{}) {
 }
 
 // 标记 seq 已处理
-func (m *PacketManager) Detach(oldSeq int32, res interface{}) {
+func (m *SeqManager) RemoveSeq(oldSeq int32, res interface{}) {
 	l, g := m.group(oldSeq)
 	l.Lock()
 	defer l.Unlock()
 
-	fmt.Println("detached", oldSeq, string(res.([]byte)))
 	if ch, ok := g[oldSeq]; ok {
 		ch <- res
 		close(ch)
@@ -58,12 +56,12 @@ func (m *PacketManager) Detach(oldSeq int32, res interface{}) {
 }
 
 // 获取下一个可分配的 seq
-func (m *PacketManager) NextSeq() int32 {
+func (m *SeqManager) NextSeq() int32 {
 	next := atomic.AddInt32(&m.curSeq, 1)
 	return next % m.maxSeq // 轮回使用
 }
 
-func (m *PacketManager) group(seq int32) (lock *sync.Mutex, group map[int32]chan interface{}) {
+func (m *SeqManager) group(seq int32) (lock *sync.Mutex, group map[int32]chan interface{}) {
 	g := seq % MAX_CONCUR
 	lock = m.locks[g]
 	group = m.groups[g]

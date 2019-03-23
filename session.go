@@ -47,14 +47,14 @@ func (s *Session) ReadPacket() {
 	for s.living {
 		b, err := s.codec.ReadPacket(s.cr)
 		if err != nil {
-			fmt.Println(err)
+			fmt.Printf("session: read packet failed: %v\n", err)
 			s.living = false
 			return
 		}
 
 		p, err := s.codec.UnmarshalPacket(b)
 		if err != nil {
-			fmt.Println(err)
+			fmt.Printf("session: unmarshal packet failed: %v\n", err)
 			s.living = false
 			return
 		}
