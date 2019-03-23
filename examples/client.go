@@ -25,7 +25,8 @@ func main() {
 	codec := tron.NewDefaultCodec()
 	cli := tron.NewClient(conn, clientConf, codec, packHandler)
 	cli.Run()
-	manager.Add(cli)
+	g := tron.NewClientsGroup("add-service", "add-service")
+	manager.Add(g, cli)
 
 	go func() {
 		for i := 0; i < 5; i++ {

@@ -16,7 +16,7 @@ type Server struct {
 	codec     Codec
 }
 
-func NewServer(addr string, conf *Config, f func(worker *Client, p *Packet)) *Server {
+func NewServer(addr string, conf *Config, serverCodec Codec, f func(worker *Client, p *Packet)) *Server {
 	s := &Server{
 		address:   addr,
 		handler:   f,
@@ -24,7 +24,7 @@ func NewServer(addr string, conf *Config, f func(worker *Client, p *Packet)) *Se
 		conf:      conf,
 		shutdown:  make(chan struct{}, 1), // 这里是缓冲 channel
 		keepAlive: 5 * time.Second,
-		codec:     NewDefaultCodec(),
+		codec:     serverCodec,
 	}
 	return s
 }

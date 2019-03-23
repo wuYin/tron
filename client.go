@@ -17,15 +17,15 @@ type Client struct {
 	codec      Codec
 }
 
-func NewClient(conn *net.TCPConn, conf *Config, codec Codec, f func(cli *Client, p *Packet)) *Client {
-	session := NewSession(conn, conf, codec)
+func NewClient(conn *net.TCPConn, conf *Config, workerCodec Codec, f func(cli *Client, p *Packet)) *Client {
+	session := NewSession(conn, conf, workerCodec)
 	cli := &Client{
 		conn:      conn,
 		heartbeat: time.Now().Unix(),
 		session:   session,
 		handler:   f,
 		conf:      conf,
-		codec:     codec,
+		codec:     workerCodec,
 	}
 	return cli
 }

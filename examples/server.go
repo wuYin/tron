@@ -8,7 +8,8 @@ import (
 
 func main() {
 	serverConf := tron.NewConfig(16*1024, 16*1024, 100, 100, 1000, 5*time.Second)
-	s := tron.NewServer("localhost:8080", serverConf, serverPackHandler)
+	codec := tron.NewDefaultCodec()
+	s := tron.NewServer("localhost:8080", serverConf, codec, serverPackHandler)
 	s.ListenAndServe()
 
 	time.Sleep(100000 * time.Second)
