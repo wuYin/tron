@@ -17,14 +17,10 @@ func main() {
 func serverPackHandler(worker *tron.Client, p *tron.Packet) {
 	fmt.Printf("[client:%s] -> [server:%s]: %s\n", worker.LocalAddr(), worker.RemoteAddr(), p.Data)
 	if string(p.Data) == "ping" {
-		pongPack := tron.NewPacket([]byte("pong"))
-		respCh, err := worker.DirectWrite(pongPack)
-		if err != nil {
-			fmt.Println(err)
+		pongPack := tron.NewRespPacket(p.Header.Seq, []byte("pong"))
+		if _, err := worker.AsyncWrite(pongPack); err != nil {
+			fmt.Printf("worker write failed: %v\n", err)
 			return
-		}
-		for resp := range respCh {
-			fmt.Println("[resp]:", resp)
 		}
 	}
 }

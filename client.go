@@ -38,40 +38,31 @@ func (c *Client) Run() {
 	c.remoteAddr = fmt.Sprintf("%s:%d", rAddr.IP, rAddr.Port)
 
 	// 读写连接
-	go c.session.ReadPacket()
-	go c.session.WritePacket()
+	go c.session.daemonReadPacket()
+	go c.session.daemonWritePacket()
 
 	// 处理接收到的包
 	go c.handle()
 }
 
-// 写入新 pack
-func (c *Client) DirectWrite(newPack *Packet) (chan interface{}, error) {
-	nextSeq, respCh := c.fillSeq(newPack)
-	c.conf.SeqManager.RegisterSeq(nextSeq, respCh)
-	return respCh, c.session.DirectWrite(newPack)
+// 异步写
+func (c *Client) AsyncWrite(p *Packet) (chan interface{}, error) {
+	if p.Header.Seq >= 0 {
+		fmt.Printf("worker: %v\n", p)
+		return nil, c.session.Write(p) // worker 的响应直接写回
+	}
+
+	// 请求的 packet 将 seq 写入
+	p.Header.Seq = c.conf.SeqManager.NextSeq()
+	respCh := make(chan interface{}, 1)
+	c.conf.SeqManager.AddSeq(p.Header.Seq, respCh)
+	fmt.Printf("client: %v\n", p)
+	return respCh, c.session.Write(p)
 }
 
-// 定期检测连接是否存活
-func (c *Client) Ping(heartbeat *Packet, timeout time.Duration) error {
-	v, err := c.SyncWriteAndRead(heartbeat, timeout)
-	if err != nil {
-		return fmt.Errorf("ping: %v", err)
-	}
-
-	pong, ok := v.(int64)
-	if !ok {
-		return fmt.Errorf("ping: invalid pong data type")
-	}
-	if pong > c.heartbeat { // 避免 packet 延迟
-		c.heartbeat = pong
-	}
-	return nil
-}
-
-// 同步请求，用于检测心跳等
-func (c *Client) SyncWriteAndRead(newPack *Packet, timeout time.Duration) (interface{}, error) {
-	respCh, err := c.DirectWrite(newPack)
+// 同步写
+func (c *Client) SyncWrite(newPack *Packet, timeout time.Duration) (interface{}, error) {
+	respCh, err := c.AsyncWrite(newPack)
 	if err != nil {
 		return nil, err
 	}
@@ -83,27 +74,14 @@ func (c *Client) SyncWriteAndRead(newPack *Packet, timeout time.Duration) (inter
 	}
 }
 
-// 填充新的 seq
-func (c *Client) fillSeq(newPack *Packet) (int32, chan interface{}) {
-	if newPack.Header.Seq > 0 {
-		return newPack.Header.Seq, nil
-	}
-
-	nextSeq := c.conf.SeqManager.NextSeq()
-	respCh := make(chan interface{}, 1)
-	newPack.Header.Seq = nextSeq
-
-	return nextSeq, respCh
-}
-
-// 处理完毕
-func (c *Client) Detach(seq int32, resp interface{}) {
+// client 收到 worker 发出的响应数据
+func (c *Client) NotifyReceived(seq int32, resp interface{}) {
 	c.conf.SeqManager.RemoveSeq(seq, resp)
 }
 
 // 分发处理收取到的包
 func (c *Client) handle() {
-	for c.session != nil && c.session.living {
+	for c.session != nil && !c.session.IsClosed() {
 		if p, ok := <-c.session.ReadCh; ok {
 			if c.handler != nil {
 				go c.handler(c, p)
@@ -120,13 +98,8 @@ func (c *Client) RemoteAddr() string {
 	return c.remoteAddr
 }
 
-func (c *Client) Living() bool {
-	return c.session.Living()
-}
-
-// 检测当前连接是否闲置
-func (c *Client) IsIdle() bool {
-	return c.session.IsIdle()
+func (c *Client) IsClosed() bool {
+	return c.session.IsClosed()
 }
 
 // 尝试重连

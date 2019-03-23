@@ -18,7 +18,7 @@ type Session struct {
 	cw        *bufio.Writer // 连接缓冲 writer
 	ReadCh    chan *Packet  // 读请求的 channel
 	WriteCh   chan *Packet  // 写响应的 channel
-	living    bool
+	closed    bool
 	idleTimer *time.Timer
 	conf      *Config
 	codec     Codec
@@ -33,7 +33,7 @@ func NewSession(conn *net.TCPConn, conf *Config, codec Codec) *Session {
 		cw:        bufio.NewWriterSize(conn, conf.WriteBufSize),
 		ReadCh:    make(chan *Packet, conf.ReadChanSize),
 		WriteCh:   make(chan *Packet, conf.WriteChanSize),
-		living:    true,
+		closed:    false,
 		idleTimer: time.NewTimer(conf.IdleDuration),
 		conf:      conf,
 		codec:     codec,
@@ -42,20 +42,20 @@ func NewSession(conn *net.TCPConn, conf *Config, codec Codec) *Session {
 }
 
 // 读取数据
-func (s *Session) ReadPacket() {
+func (s *Session) daemonReadPacket() {
 	buf := bytes.NewBuffer(nil)
-	for s.living {
+	for !s.closed {
 		b, err := s.codec.ReadPacket(s.cr)
 		if err != nil {
 			fmt.Printf("session: read packet failed: %v\n", err)
-			s.living = false
+			s.closed = true
 			return
 		}
 
 		p, err := s.codec.UnmarshalPacket(b)
 		if err != nil {
 			fmt.Printf("session: unmarshal packet failed: %v\n", err)
-			s.living = false
+			s.closed = true
 			return
 		}
 
@@ -67,18 +67,44 @@ func (s *Session) ReadPacket() {
 }
 
 // 写入响应
-func (s *Session) WritePacket() {
-	for s.living {
+func (s *Session) daemonWritePacket() {
+	for !s.closed {
 		if p, ok := <-s.WriteCh; ok {
-			s.writeConn(*p)
-			s.flush()
+			// write to buffer
+			buf := s.codec.MarshalPacket(*p)
+			if buf == nil || len(buf) == 0 {
+				logx.Error("invalid packet: %+v", p)
+				return
+			}
+
+			n, err := s.cw.Write(buf)
+			if err != nil {
+				logx.Error(err)
+				if err == io.EOF { // 另一端主动关闭
+					s.Close()
+					return
+				}
+				if err == io.ErrShortWrite { // 未写完毕尝试重写
+					s.cw.Write(buf[n:])
+				}
+			}
+
+			// flush
+			if s.closed || s.cw.Buffered() <= 0 {
+				return
+			}
+			if err := s.cw.Flush(); err != nil {
+				logx.Error("flush failed: %v", err)
+				s.cw.Reset(s.conn)
+				return
+			}
 		}
 	}
 }
 
 // 对外保留的写数据方法
-func (s *Session) DirectWrite(p *Packet) error {
-	if s.living {
+func (s *Session) Write(p *Packet) error {
+	if !s.closed {
 		select {
 		case s.WriteCh <- p:
 			return nil
@@ -91,8 +117,8 @@ func (s *Session) DirectWrite(p *Packet) error {
 
 // 关闭当前连接
 func (s *Session) Close() error {
-	if s.living {
-		s.living = false
+	if !s.closed {
+		s.closed = true
 		s.conn.Close() // 主动关闭连接
 		close(s.ReadCh)
 		close(s.WriteCh)
@@ -101,48 +127,6 @@ func (s *Session) Close() error {
 	return nil
 }
 
-func (s *Session) Living() bool {
-	return s.living
-}
-
-func (s *Session) IsIdle() bool {
-	select {
-	case <-s.idleTimer.C:
-		return true // 连接长时间空闲
-	default:
-		return false // 还没到超时时间
-	}
-}
-
-// 真正写入数据流
-func (s *Session) writeConn(p Packet) {
-	buf := s.codec.MarshalPacket(p)
-	if buf == nil || len(buf) == 0 {
-		logx.Error("invalid packet: %+v", p)
-		return
-	}
-
-	n, err := s.cw.Write(buf)
-	if err != nil {
-		logx.Error(err)
-		if err == io.EOF { // 另一端主动关闭
-			s.Close()
-			return
-		}
-		if err == io.ErrShortWrite { // 未写完毕尝试重写
-			s.cw.Write(buf[n:])
-		}
-	}
-}
-
-// 一次性写出缓存
-func (s *Session) flush() {
-	if !s.living || s.cw.Buffered() <= 0 {
-		return
-	}
-	if err := s.cw.Flush(); err != nil {
-		logx.Error("flush failed: %v", err)
-		s.cw.Reset(s.conn)
-		return
-	}
+func (s *Session) IsClosed() bool {
+	return s.closed
 }

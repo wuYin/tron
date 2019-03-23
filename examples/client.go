@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"net"
-	"strings"
 	"time"
 	"tron"
 )
@@ -24,14 +23,24 @@ func main() {
 	}
 
 	codec := tron.NewDefaultCodec()
-	cli := tron.NewClient(conn, clientConf, codec, clientPackHandler)
+	cli := tron.NewClient(conn, clientConf, codec, packHandler)
 	cli.Run()
 	manager.Add(cli)
 
 	go func() {
 		for i := 0; i < 5; i++ {
-			pingPack := tron.NewPacket([]byte("ping"))
-			cli.DirectWrite(pingPack)
+			pingPack := tron.NewReqPacket([]byte("ping"))
+
+			// 异步写
+			// cli.AsyncWrite(pingPack)
+
+			// 同步写
+			res, err := cli.SyncWrite(pingPack, 2*time.Second)
+			if err != nil {
+				fmt.Printf("client sync write %v failed: %v\n", pingPack, err)
+				return
+			}
+			fmt.Println("res", string(res.([]byte)))
 			time.Sleep(1 * time.Second)
 		}
 	}()
@@ -39,12 +48,10 @@ func main() {
 	time.Sleep(100000 * time.Second)
 }
 
-func clientPackHandler(cli *tron.Client, p *tron.Packet) {
-	c := cli.LocalAddr()
-	s := cli.RemoteAddr()
-	fmt.Printf("[server:%s] -> [client:%s]: %s\n",
-		strings.Split(s, ":")[1],
-		strings.Split(c, ":")[1],
-		string(p.Data))              // debug
-	cli.Detach(p.Header.Seq, p.Data) // ok
+func packHandler(cli *tron.Client, p *tron.Packet) {
+	// c := cli.LocalAddr()
+	// s := cli.RemoteAddr()
+	// fmt.Printf("[server:%s] -> [client:%s]: %s\n", strings.Split(s, ":")[1], strings.Split(c, ":")[1], string(p.Data)) // debug
+	// fmt.Println("clientPackHandler, resp: ", string(p.Data))
+	cli.NotifyReceived(p.Header.Seq, p.Data) // ok
 }

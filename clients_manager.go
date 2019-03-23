@@ -32,7 +32,7 @@ func (m *ClientsManager) manage() {
 	tick := time.NewTicker(5 * time.Second)
 	for {
 		for _, cli := range m.addr2client {
-			if !cli.Living() {
+			if cli.IsClosed() {
 				m.tryReconnect(cli)
 			}
 		}

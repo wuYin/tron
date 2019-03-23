@@ -34,15 +34,15 @@ func NewSeqManager(maxSeq int32) *SeqManager {
 	return m
 }
 
-// 记录一个新的 packet
-func (m *SeqManager) RegisterSeq(nextSeq int32, respCh chan interface{}) {
+// 记录一个新的 seq 及其响应 channel
+func (m *SeqManager) AddSeq(nextSeq int32, respCh chan interface{}) {
 	l, g := m.group(nextSeq)
 	l.Lock()
 	g[nextSeq] = respCh
 	l.Unlock()
 }
 
-// 标记 seq 已处理
+// 取出指定 seq 及其 channel 来发送响应
 func (m *SeqManager) RemoveSeq(oldSeq int32, res interface{}) {
 	l, g := m.group(oldSeq)
 	l.Lock()
