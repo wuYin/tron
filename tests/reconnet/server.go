@@ -12,7 +12,8 @@ func main() {
 	s := tron.NewServer("localhost:8080", serverConf, codec, serverPackHandler)
 	s.ListenAndServe()
 
-	time.Sleep(100000 * time.Second)
+	time.Sleep(2 * time.Second)
+	s.Shutdown()
 }
 
 func serverPackHandler(worker *tron.Client, p *tron.Packet) {

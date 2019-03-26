@@ -8,14 +8,14 @@ import (
 )
 
 type reconnectTask struct {
-	client    *Client
-	retried   int
+	client  *Client
+	retried int
 }
 
 func newReconnectTask(cli *Client) *reconnectTask {
 	return &reconnectTask{
-		client:    cli,
-		retried:   0,
+		client:  cli,
+		retried: 0,
 	}
 }
 
@@ -46,7 +46,7 @@ func NewReconnectTaskManager(timeout time.Duration, maxRetry int) *ReconnectTask
 }
 
 // 准备重连任务
-func (m ReconnectTaskManager) prepare(cli *Client) {
+func (m ReconnectTaskManager) reconnect(cli *Client) {
 	m.lock.Lock()
 	defer m.lock.Unlock()
 
@@ -61,8 +61,8 @@ func (m ReconnectTaskManager) prepare(cli *Client) {
 // 执行重连任务
 func (m *ReconnectTaskManager) exec(task *reconnectTask) {
 	serverAddr := task.client.RemoteAddr()
-	sAddr := port(serverAddr)
-	lAddr := port(task.client.LocalAddr())
+	sAddr := SplitPort(serverAddr)
+	lAddr := SplitPort(task.client.LocalAddr())
 	taskTicker := time.AfterFunc(m.timeout, func() {
 		succ := task.reconnect()
 		if succ {
@@ -74,7 +74,7 @@ func (m *ReconnectTaskManager) exec(task *reconnectTask) {
 			ticker := m.taskTickers[serverAddr]
 			// 超出重试次数
 			if task.retried >= m.maxRetry {
-				fmt.Printf("[client:%s] -> [server:%s] try reconnected %d times > max %d times\n", lAddr, sAddr, task.retried, m.maxRetry)
+				fmt.Printf("[client:%s] -> [server:%s] try reconnected %d times >= max %d times\n", lAddr, sAddr, task.retried, m.maxRetry)
 				ticker.Stop()
 				delete(m.taskTickers, serverAddr)
 				return

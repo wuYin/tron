@@ -15,7 +15,7 @@ func main() {
 	}
 
 	clientConf := tron.NewDefaultConf(1 * time.Minute)
-	r := tron.NewReconnectTaskManager(5*time.Second, 3)
+	r := tron.NewReconnectTaskManager(2*time.Second, 3)
 	manager := tron.NewClientsManager(r)
 	conn, err := net.DialTCP("tcp4", nil, addr)
 	if err != nil {
@@ -29,20 +29,11 @@ func main() {
 	manager.Add(g, cli)
 
 	go func() {
-		for i := 0; i < 5; i++ {
-			pingPack := tron.NewReqPacket([]byte("ping"))
-
-			// 异步写
-			// cli.AsyncWrite(pingPack)
-
-			// 同步写
-			_, err := cli.SyncWrite(pingPack, 2*time.Second)
-			if err != nil {
-				fmt.Printf("client sync write %v failed: %v\n", pingPack, err)
-				return
-			}
-			// fmt.Println("res", string(res.([]byte)))
-			time.Sleep(1 * time.Second)
+		pingPack := tron.NewReqPacket([]byte("ping"))
+		_, err := cli.SyncWrite(pingPack, 2*time.Second)
+		if err != nil {
+			fmt.Printf("client sync write %v failed: %v\n", pingPack, err)
+			return
 		}
 	}()
 
@@ -54,6 +45,5 @@ func packHandler(cli *tron.Client, p *tron.Packet) {
 		tron.SplitPort(cli.RemoteAddr()),
 		tron.SplitPort(cli.LocalAddr()),
 		string(p.Data))
-	// fmt.Println("clientPackHandler, resp: ", string(p.Data))
 	cli.NotifyReceived(p.Header.Seq, p.Data) // ok
 }

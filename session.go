@@ -51,7 +51,7 @@ func (s *Session) daemonReadPacket() {
 			s.closed = true
 			return
 		}
-		fmt.Printf("%s -> %s read: %v\n", s.LocalAddr(), s.RemoteAddr(), string(b))
+		// fmt.Printf("%s -> %s read: %v\n", s.LocalAddr(), s.RemoteAddr(), string(b))
 
 		p, err := s.codec.UnmarshalPacket(b)
 		if err != nil {

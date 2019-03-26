@@ -56,16 +56,9 @@ func (m *ClientsManager) manage() {
 	for {
 		for _, cli := range m.addr2Client {
 			if cli.IsClosed() {
-				m.tryReconnect(cli)
+				m.reconnector.reconnect(cli)
 			}
 		}
 		<-tick.C
 	}
-}
-
-// 尝试重连
-func (m *ClientsManager) tryReconnect(cli *Client) {
-	m.lock.Lock()
-	defer m.lock.Unlock()
-	m.reconnector.prepare(cli)
 }
