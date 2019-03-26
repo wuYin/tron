@@ -47,10 +47,11 @@ func (s *Session) daemonReadPacket() {
 	for !s.closed {
 		b, err := s.codec.ReadPacket(s.cr)
 		if err != nil {
-			fmt.Printf("session: read packet failed: %v\n", err)
+			fmt.Printf("%s -> %s session closed.\n", s.LocalAddr(), s.RemoteAddr())
 			s.closed = true
 			return
 		}
+		fmt.Printf("%s -> %s read: %v\n", s.LocalAddr(), s.RemoteAddr(), string(b))
 
 		p, err := s.codec.UnmarshalPacket(b)
 		if err != nil {
@@ -129,4 +130,12 @@ func (s *Session) Close() error {
 
 func (s *Session) IsClosed() bool {
 	return s.closed
+}
+
+func (s *Session) LocalAddr() string {
+	return s.conn.LocalAddr().String()
+}
+
+func (s *Session) RemoteAddr() string {
+	return s.conn.RemoteAddr().String()
 }

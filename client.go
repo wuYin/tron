@@ -7,14 +7,12 @@ import (
 )
 
 type Client struct {
-	conn       *net.TCPConn                 // 原生连接
-	session    *Session                     // 连接会话
-	heartbeat  int64                        // 最后心跳时间
-	localAddr  string                       // 本端地址
-	remoteAddr string                       // 对端地址
-	handler    func(cli *Client, p *Packet) // 包处理函数
-	conf       *Config                      // 共享配置
-	codec      Codec
+	conn      *net.TCPConn                 // 原生连接
+	session   *Session                     // 连接会话
+	heartbeat int64                        // 最后心跳时间
+	handler   func(cli *Client, p *Packet) // 包处理函数
+	conf      *Config                      // 共享配置
+	codec     Codec
 }
 
 func NewClient(conn *net.TCPConn, conf *Config, workerCodec Codec, f func(cli *Client, p *Packet)) *Client {
@@ -31,12 +29,7 @@ func NewClient(conn *net.TCPConn, conf *Config, workerCodec Codec, f func(cli *C
 }
 
 // 从连接中读数据，处理包，写回数据
-func (c *Client) Run() {
-	lAddr, _ := c.conn.LocalAddr().(*net.TCPAddr)
-	rAddr, _ := c.conn.RemoteAddr().(*net.TCPAddr)
-	c.localAddr = fmt.Sprintf("%s:%d", lAddr.IP, lAddr.Port)
-	c.remoteAddr = fmt.Sprintf("%s:%d", rAddr.IP, rAddr.Port)
-
+func (c *Client) ReadWriteAndHandle() {
 	// 读写连接
 	go c.session.daemonReadPacket()
 	go c.session.daemonWritePacket()
@@ -48,7 +41,6 @@ func (c *Client) Run() {
 // 异步写
 func (c *Client) AsyncWrite(p *Packet) (chan interface{}, error) {
 	if p.Header.Seq >= 0 {
-		fmt.Printf("worker: %v\n", p)
 		return nil, c.session.Write(p) // worker 的响应直接写回
 	}
 
@@ -56,7 +48,6 @@ func (c *Client) AsyncWrite(p *Packet) (chan interface{}, error) {
 	p.Header.Seq = c.conf.SeqManager.NextSeq()
 	respCh := make(chan interface{}, 1)
 	c.conf.SeqManager.AddSeq(p.Header.Seq, respCh)
-	fmt.Printf("client: %v\n", p)
 	return respCh, c.session.Write(p)
 }
 
@@ -68,7 +59,7 @@ func (c *Client) SyncWrite(newPack *Packet, timeout time.Duration) (interface{},
 	}
 	select {
 	case <-time.After(timeout):
-		return nil, fmt.Errorf("sync write: %d timeout", timeout)
+		return nil, fmt.Errorf("sync write: %.fs timeout", timeout.Seconds())
 	case resp := <-respCh:
 		return resp, nil
 	}
@@ -91,11 +82,11 @@ func (c *Client) handle() {
 }
 
 func (c *Client) LocalAddr() string {
-	return c.localAddr
+	return c.session.LocalAddr()
 }
 
 func (c *Client) RemoteAddr() string {
-	return c.remoteAddr
+	return c.session.RemoteAddr()
 }
 
 func (c *Client) IsClosed() bool {
@@ -111,6 +102,6 @@ func (c *Client) reconnect() (bool, error) {
 
 	c.conn = newConn
 	c.session = NewSession(newConn, c.conf, c.codec) // 建立连接
-	c.Run()                                          // 重启
+	c.ReadWriteAndHandle()                           // 重启
 	return true, nil
 }

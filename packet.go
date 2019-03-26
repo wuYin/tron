@@ -9,6 +9,16 @@ type Packet struct {
 	Data   []byte  // 包数据
 }
 
+func (p Packet) Seq() int32 {
+	return p.Header.Seq
+}
+
+func (p Packet) String() (s string) {
+	s = fmt.Sprintf("header: %+v", p.Header)
+	s += fmt.Sprintf("data: `%s`", p.Data)
+	return
+}
+
 // 响应包直接使用 req packet 的 seq
 func NewRespPacket(seq int32, data []byte) *Packet {
 	h := &Header{
@@ -25,10 +35,4 @@ func NewReqPacket(data []byte) *Packet {
 		DataLen: int32(len(data)),
 	}
 	return &Packet{Header: h, Data: data}
-}
-
-func (p Packet) String() (s string) {
-	s = fmt.Sprintf("header: %+v", p.Header)
-	s += fmt.Sprintf("data: `%s`", p.Data)
-	return
 }

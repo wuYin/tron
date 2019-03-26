@@ -7,8 +7,8 @@ import (
 )
 
 func main() {
-	serverConf := tron.NewConfig(16*1024, 16*1024, 100, 100, 1000, 5*time.Second)
-	codec := tron.NewDefaultCodec()
+	serverConf := tron.NewDefaultConf(1 * time.Minute)
+	codec := NewDefaultCodec()
 	s := tron.NewServer("localhost:8080", serverConf, codec, serverPackHandler)
 	s.ListenAndServe()
 
@@ -16,7 +16,7 @@ func main() {
 }
 
 func serverPackHandler(worker *tron.Client, p *tron.Packet) {
-	fmt.Printf("[client:%s] -> [server:%s]: %s\n", worker.LocalAddr(), worker.RemoteAddr(), p.Data)
+	fmt.Printf("[client:%s] -> [server:%s]: %s\n", worker.RemoteAddr(), worker.LocalAddr(), p.Data)
 	if string(p.Data) == "ping" {
 		pongPack := tron.NewRespPacket(p.Header.Seq, []byte("pong"))
 		if _, err := worker.AsyncWrite(pongPack); err != nil {

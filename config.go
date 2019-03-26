@@ -11,6 +11,10 @@ type Config struct {
 	SeqManager    *SeqManager   // 包序号管理
 }
 
+func NewDefaultConf(idle time.Duration) *Config {
+	return NewConfig(16*1024, 16*1024, 100, 100, 1000, idle)
+}
+
 func NewConfig(rBufSize, wBufSize int, rChSize, wChSize int, maxSeq int32, idle time.Duration) *Config {
 	c := &Config{
 		ReadBufSize:   rBufSize,

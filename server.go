@@ -65,7 +65,7 @@ func (s *Server) run(l *LiveListener) error {
 
 		// 将连接分发给 server worker 处理
 		serverWorker := NewClient(conn, s.conf, s.codec, s.handler)
-		serverWorker.Run()
+		serverWorker.ReadWriteAndHandle()
 	}
 	return nil
 }

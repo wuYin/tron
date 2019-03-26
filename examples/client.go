@@ -14,7 +14,7 @@ func main() {
 		return
 	}
 
-	clientConf := tron.NewConfig(16*1024, 16*1024, 100, 100, 1000, 5*time.Second)
+	clientConf := tron.NewDefaultConf(1 * time.Minute)
 	r := tron.NewReconnectTaskManager(5*time.Second, 3)
 	manager := tron.NewClientsManager(r)
 	conn, err := net.DialTCP("tcp4", nil, addr)
@@ -22,7 +22,7 @@ func main() {
 		panic(err)
 	}
 
-	codec := tron.NewDefaultCodec()
+	codec := NewDefaultCodec()
 	cli := tron.NewClient(conn, clientConf, codec, packHandler)
 	cli.Run()
 	g := tron.NewClientsGroup("add-service", "add-service")
