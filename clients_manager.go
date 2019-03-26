@@ -7,7 +7,8 @@ import (
 
 type ClientsManager struct {
 	reconnector   *ReconnectTaskManager
-	addr2Client   map[string]*Client   // remoteAddr -> client
+	addr2Client   map[string]*Client // remoteAddr -> client
+	reconnected   map[string]bool
 	group2Clients map[string][]*Client // gid -> clients
 	allClients    map[string]*Client   // localAddr -> gid
 	lock          sync.Mutex
@@ -19,10 +20,12 @@ func NewClientsManager(r *ReconnectTaskManager) *ClientsManager {
 		addr2Client:   make(map[string]*Client),
 		group2Clients: make(map[string][]*Client),
 		allClients:    make(map[string]*Client),
+		reconnected:   make(map[string]bool),
 		lock:          sync.Mutex{},
 	}
 
-	go m.manage()
+	go m.daemonReconnect()
+
 	return m
 }
 
@@ -51,13 +54,20 @@ func (m *ClientsManager) FindClients(gid string, filter func(gid string, cli *Cl
 	return clients
 }
 
-func (m *ClientsManager) manage() {
+func (m *ClientsManager) daemonReconnect() {
 	tick := time.NewTicker(5 * time.Second)
 	for {
 		for _, cli := range m.addr2Client {
-			if cli.IsClosed() {
-				m.reconnector.reconnect(cli)
+			if !cli.IsClosed() {
+				continue
 			}
+
+			// 已尝试过重连
+			if m.reconnected[cli.RemoteAddr()] {
+				continue
+			}
+			m.reconnector.reconnect(cli)
+			m.reconnected[cli.RemoteAddr()] = true
 		}
 		<-tick.C
 	}

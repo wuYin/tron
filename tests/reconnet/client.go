@@ -15,7 +15,7 @@ func main() {
 	}
 
 	clientConf := tron.NewDefaultConf(1 * time.Minute)
-	r := tron.NewReconnectTaskManager(2*time.Second, 3)
+	r := tron.NewReconnectTaskManager(2*time.Second, 5)
 	manager := tron.NewClientsManager(r)
 	conn, err := net.DialTCP("tcp4", nil, addr)
 	if err != nil {
